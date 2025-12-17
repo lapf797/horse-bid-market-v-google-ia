@@ -3,7 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import { HorseLot } from "../types";
 
 const getClient = () => {
-    // Check if key is available
     if (!process.env.API_KEY) {
         console.warn("Gemini API Key missing");
         return null;
@@ -13,44 +12,32 @@ const getClient = () => {
 
 export const askGeminiAboutHorse = async (horse: HorseLot, question: string): Promise<string> => {
   const ai = getClient();
-  if (!ai) return "A chave de API do Gemini não foi configurada. Não é possível consultar a IA no momento.";
+  if (!ai) return "A chave de API do Gemini não foi configurada.";
 
   const context = `
     ATUE COMO: Auditor Técnico do Horse Bid Market.
+    OBJETIVO: Responder tecnicamente sobre o cavalo ${horse.name}.
+    REGRAS: 
+    1. Respostas curtas e secas. 
+    2. Apenas fatos genealógicos. 
+    3. Use Markdown.
     
-    OBJETIVO: Responder tecnicamente sobre o cavalo.
-    
-    REGRAS RÍGIDAS (IMPORTANTE):
-    1. SEJA SUCINTO: Respostas curtas. Máximo 2 ou 3 parágrafos breves.
-    2. NEUTRALIDADE ABSOLUTA: Não emita opiniões (nem positivas, nem negativas). Apenas fatos.
-    3. SEM ADJETIVOS DE VENDA: Nunca use "lindo", "incrível", "pena que", "infelizmente".
-    4. FORMATO: Use Markdown (negrito para dados chave).
-    
-    DADOS DO LOTE:
+    DADOS:
     Nome: ${horse.name}
     Raça: ${horse.breed}
-    Nascimento: ${horse.dob}
     Pai: ${horse.sire}
     Mãe: ${horse.dam}
     Avô Materno: ${horse.damSire}
-    
-    Pergunta do usuário: "${question}"
-    
-    Responda apenas o que foi perguntado, baseando-se nos dados acima e em conhecimento genético geral, de forma seca e técnica.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        parts: [
-          { text: context }
-        ]
-      },
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: `${context}\n\nPergunta: ${question}` }] }],
       config: {
-          temperature: 0.2, // Low temp for factual/concise output
-          maxOutputTokens: 250, // Force brevity
-      }
+          temperature: 0.1,
+          maxOutputTokens: 300,
+      },
     });
 
     return response.text || "Sem dados técnicos suficientes.";

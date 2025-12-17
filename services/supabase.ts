@@ -1,11 +1,24 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Substitua estas variáveis pelas suas chaves do Supabase Dashboard
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'SUA_URL_SUPABASE_AQUI';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'SUA_CHAVE_ANON_AQUI';
+// ATENÇÃO: Nunca coloque as chaves reais hardcoded aqui se for enviar para o GitHub.
+// Configure-as nas "Environment Variables" da sua hospedagem (Vercel/Netlify).
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+
+// Verificação de segurança para ajudar no debug
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("⚠️ AVISO: As chaves do Supabase não foram encontradas nas variáveis de ambiente.");
+  console.warn("Verifique se REACT_APP_SUPABASE_URL e REACT_APP_SUPABASE_ANON_KEY estão configuradas.");
+}
+
+// Inicializa o cliente. Usamos valores placeholder se as vars não existirem para evitar crash imediato,
+// mas as requisições falharão até que você configure o ambiente.
+export const supabase = createClient(
+  supabaseUrl || 'https://seu-projeto.supabase.co', 
+  supabaseAnonKey || 'sua-chave-anonima'
+);
 
 // Funções Auxiliares de Banco de Dados
 
