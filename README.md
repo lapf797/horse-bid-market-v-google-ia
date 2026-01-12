@@ -6,7 +6,7 @@ Este é um sistema premium de leilão de cavalos com lances em tempo real e aná
 
 ### 1. Banco de Dados (Supabase)
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. Vá em **SQL Editor** e execute o código abaixo para criar as tabelas:
+2. Vá em **SQL Editor** e execute o código abaixo para criar as tabelas com a estrutura completa:
 
 ```sql
 -- Perfis de Usuário
@@ -37,14 +37,24 @@ create table public.lots (
   lot_number integer not null,
   name text not null,
   breed text,
+  dob date,
+  gender text,
+  sire text,
+  dam text,
+  dam_sire text,
+  discipline text,
+  height text,
   description text,
   image_url text,
+  youtube_id text,
+  seller_notes text,
   start_price numeric not null,
   current_price numeric not null,
   increment_amount numeric default 500,
   installments integer default 30,
   status text default 'ACTIVE',
-  end_time timestamp with time zone not null
+  end_time timestamp with time zone not null,
+  gallery_images text[] -- Array de URLs de imagens
 );
 
 -- Lances
