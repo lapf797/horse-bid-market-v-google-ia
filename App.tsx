@@ -233,7 +233,8 @@ const App: React.FC = () => {
   );
 
   if (currentView === 'ADMIN') return <AdminDashboard events={events} submissions={submissions} onCreateEvent={(e) => setEvents([...events, e])} onApproveSubmission={() => {}} onRejectSubmission={() => {}} onNavigateHome={() => setCurrentView('HOME')} />;
-  if (currentView === 'SELLER') return <><renderHeader /><SellerRegistration onCancel={() => setCurrentView('HOME')} onSubmit={() => setCurrentView('HOME')} /></>;
+  /* Fixed renderHeader call here */
+  if (currentView === 'SELLER') return <>{renderHeader()}<SellerRegistration onCancel={() => setCurrentView('HOME')} onSubmit={() => setCurrentView('HOME')} /></>;
   if (currentView === 'LOGIN') return <Login onCancel={() => setCurrentView('HOME')} onSuccess={(u) => { setCurrentUser({id: u.id, name: u.name, type: 'USER'}); setCurrentView('HOME'); }} onRegisterClick={() => setCurrentView('REGISTER')} />;
   if (currentView === 'REGISTER') return <UserRegistration onCancel={() => setCurrentView('HOME')} onSuccess={() => setCurrentView('LOGIN')} />;
 
