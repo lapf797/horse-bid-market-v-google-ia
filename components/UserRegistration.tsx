@@ -170,7 +170,7 @@ const UserRegistration: React.FC<Props> = ({ onCancel, onSuccess }) => {
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8">
                 {step === 1 && (
                     <div className="space-y-6 animate-fade-in">
-                        <h3 className="text-xl font-bold text-equus-navy uppercase tracking-tighter">Identificação de Acesso</h3>
+                        <h3 className="text-xl font-bold text-equus-navy uppercase tracking-tighter">Identificação de Cadastro</h3>
                         <div className="grid gap-6">
                             <div className="group">
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 group-focus-within:text-equus-gold transition-colors">Nome Completo</label>

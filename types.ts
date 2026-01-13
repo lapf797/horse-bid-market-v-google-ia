@@ -8,10 +8,27 @@ export enum AuctionStatus {
   SOLD = 'SOLD',
 }
 
+export enum UserStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  BLOCKED = 'BLOCKED',
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  cpf: string;
+  status: UserStatus;
+  role: 'USER' | 'ADMIN';
+  createdAt: Date;
+}
+
 export interface PaymentConfig {
   id: string;
-  name: string; // e.g., "30 Parcelas (2+2+2+24)"
-  installments: number; // e.g., 30
+  name: string;
+  installments: number;
   description: string;
 }
 
@@ -21,14 +38,14 @@ export interface AuctionEvent {
   description: string;
   coverImage: string;
   startTime: Date;
-  endTime: Date; // General close time, though lots close individually
+  endTime: Date;
   status: AuctionStatus;
-  paymentConfigId?: string; // Default payment rule for this event
+  paymentConfigId?: string;
 }
 
 export interface Bid {
   id: string;
-  bidderName: string; // Obfuscated usually, e.g., "User ***123"
+  bidderName: string;
   amount: number;
   timestamp: Date;
 }
@@ -39,7 +56,7 @@ export interface HorseLot {
   lotNumber: number;
   name: string;
   breed: string;
-  dob: string; // Date of Birth
+  dob: string;
   gender: 'Mare' | 'Stallion' | 'Gelding';
   sire: string;
   dam: string;
@@ -48,26 +65,23 @@ export interface HorseLot {
   height: string;
   description: string;
   imageUrl: string;
-  videoUrl?: string; // Placeholder
+  videoUrl?: string;
   startPrice: number;
   currentPrice: number;
-  incrementAmount?: number; // Minimum bid increment
-  installments: number; // Number of installments (e.g., 30)
+  incrementAmount?: number;
+  installments: number;
   status: AuctionStatus;
   endTime: Date;
   bids: Bid[];
-  pedigreeAnalysis?: string; // Pre-filled or generated
-  
-  // New Fields
-  galleryImages?: string[]; // Up to 10 images
-  documents?: { title: string; url: string }[]; // Up to 5 PDFs
-  youtubeId?: string; // YouTube Video ID
-  sellerNotes?: string; // Special comments from seller
+  pedigreeAnalysis?: string;
+  galleryImages?: string[];
+  documents?: { title: string; url: string }[];
+  youtubeIds?: string[];
+  sellerNotes?: string;
 }
 
 export interface SellerSubmission {
   id: string;
-  abcchId: string;
   name: string;
   breed: string;
   dob: string;
@@ -78,19 +92,13 @@ export interface SellerSubmission {
   discipline: string;
   height: string;
   description: string;
-  photos: {
-    left: string;
-    right: string;
-    front: string;
-    back: string;
-    legs: string;
-    head: string;
-  };
+  galleryPhotos: string[];
   youtubeLink: string;
-  documents: { title: string; file: string }[]; // Using string (url/name) for mock
+  youtubeLink2?: string;
+  documentLinks: { title: string; url: string }[];
   sellerName: string;
   sellerEmail: string;
-  targetPrice: number; // Valor Objetivo
+  targetPrice: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: Date;
 }

@@ -1,307 +1,178 @@
 
 import React, { useState } from 'react';
-import { AuctionEvent, SellerSubmission, PaymentConfig, AuctionStatus } from '../types';
+import { AuctionEvent, HorseLot, UserProfile, UserStatus, AuctionStatus, PaymentConfig } from '../types';
 import { DEFAULT_PAYMENT_CONFIGS } from '../services/mockData';
 
 interface Props {
   events: AuctionEvent[];
-  submissions: SellerSubmission[];
+  lots: HorseLot[];
+  users: UserProfile[];
   onCreateEvent: (evt: AuctionEvent) => void;
-  onApproveSubmission: (subId: string, config: { eventId: string; startPrice: number; increment: number; lotNumber: number }) => void;
-  onRejectSubmission: (subId: string) => void;
+  onUpdateLot: (lot: HorseLot) => void;
+  onUpdateUserStatus: (userId: string, status: UserStatus) => void;
   onNavigateHome: () => void;
 }
 
-const AdminDashboard: React.FC<Props> = ({ events, submissions, onCreateEvent, onApproveSubmission, onRejectSubmission, onNavigateHome }) => {
-  const [activeTab, setActiveTab] = useState<'EVENTS' | 'SUBMISSIONS'>('SUBMISSIONS');
-  
-  // Create Event State
-  const [newEvent, setNewEvent] = useState<Partial<AuctionEvent>>({ title: '', description: '', coverImage: '', paymentConfigId: DEFAULT_PAYMENT_CONFIGS[0].id });
-  
-  // Approval Modal State
-  const [approvalModal, setApprovalModal] = useState<{ isOpen: boolean; subId: string | null }>({ isOpen: false, subId: null });
-  const [approveConfig, setApproveConfig] = useState({ eventId: events[0]?.id || '', startPrice: 0, increment: 500, lotNumber: 1 });
+const AdminDashboard: React.FC<Props> = ({ events, lots, users, onCreateEvent, onUpdateLot, onUpdateUserStatus, onNavigateHome }) => {
+  const [activeTab, setActiveTab] = useState<'EVENTS' | 'LOTS' | 'USERS'>('EVENTS');
+  const [lotModal, setLotModal] = useState<{isOpen: boolean, lot: Partial<HorseLot> | null}>({ isOpen: false, lot: null });
+  const [eventModal, setEventModal] = useState<{isOpen: boolean, event: Partial<AuctionEvent> | null}>({ isOpen: false, event: null });
 
-  // Details View Modal State
-  const [viewModal, setViewModal] = useState<{ isOpen: boolean; sub: SellerSubmission | null }>({ isOpen: false, sub: null });
-
-  const formatCurrency = (val: number) => {
-      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-
-  const handleCreateEvent = () => {
-      const evt: AuctionEvent = {
-          id: `evt-${Date.now()}`,
-          startTime: new Date(),
-          endTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // +7 days
-          status: AuctionStatus.UPCOMING,
-          ...newEvent as AuctionEvent
-      };
-      onCreateEvent(evt);
-      alert("Evento criado com sucesso!");
-      setNewEvent({ title: '', description: '', coverImage: '' });
-  };
-
-  const openApproval = (subId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      setApprovalModal({ isOpen: true, subId });
-  };
-
-  const handleReject = (subId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if(window.confirm("Tem certeza que deseja rejeitar este cadastro?")) {
-          onRejectSubmission(subId);
-      }
-  };
-
-  const confirmApproval = () => {
-      if (approvalModal.subId) {
-          onApproveSubmission(approvalModal.subId, approveConfig);
-          setApprovalModal({ isOpen: false, subId: null });
-      }
-  };
-
-  const openDetails = (sub: SellerSubmission) => {
-      setViewModal({ isOpen: true, sub });
-  };
+  const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className="min-h-screen bg-gray-100">
-        <div className="bg-equus-navy text-white p-4 shadow-md flex justify-between items-center">
-            <h1 className="font-serif font-bold text-xl tracking-widest">PAINEL ADMINISTRATIVO</h1>
-            <button onClick={onNavigateHome} className="text-xs uppercase hover:text-equus-gold">Sair</button>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 bg-equus-navy text-white p-6 flex flex-col shadow-2xl">
+        <div className="mb-10 flex items-center gap-3">
+          <div className="w-10 h-10 border-2 border-equus-gold flex items-center justify-center font-serif text-equus-gold text-xl font-bold">A</div>
+          <div>
+            <h1 className="font-serif font-bold text-sm leading-none">GESTOR</h1>
+            <p className="text-[10px] text-equus-gold font-bold uppercase tracking-widest">Painel Operacional</p>
+          </div>
         </div>
 
-        <div className="max-w-7xl mx-auto py-8 px-4">
-            {/* Tabs */}
-            <div className="flex gap-4 mb-8 border-b border-gray-300">
-                <button 
-                    onClick={() => setActiveTab('SUBMISSIONS')}
-                    className={`pb-4 px-2 font-bold uppercase text-sm tracking-wider ${activeTab === 'SUBMISSIONS' ? 'border-b-4 border-equus-gold text-equus-navy' : 'text-gray-400'}`}
-                >
-                    Aprovação de Lotes ({submissions.filter(s => s.status === 'PENDING').length})
-                </button>
-                <button 
-                    onClick={() => setActiveTab('EVENTS')}
-                    className={`pb-4 px-2 font-bold uppercase text-sm tracking-wider ${activeTab === 'EVENTS' ? 'border-b-4 border-equus-gold text-equus-navy' : 'text-gray-400'}`}
-                >
-                    Gestão de Eventos
-                </button>
+        <nav className="flex flex-col gap-2">
+          <button 
+            onClick={() => setActiveTab('EVENTS')}
+            className={`text-left p-4 rounded text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'EVENTS' ? 'bg-equus-gold text-equus-navy' : 'hover:bg-white/5'}`}
+          >
+            Leilões & Horários
+          </button>
+          <button 
+            onClick={() => setActiveTab('LOTS')}
+            className={`text-left p-4 rounded text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'LOTS' ? 'bg-equus-gold text-equus-navy' : 'hover:bg-white/5'}`}
+          >
+            Catálogo de Lotes
+          </button>
+          <button 
+            onClick={() => setActiveTab('USERS')}
+            className={`text-left p-4 rounded text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'USERS' ? 'bg-equus-gold text-equus-navy' : 'hover:bg-white/5'}`}
+          >
+            Clientes (Compradores)
+          </button>
+        </nav>
+
+        <button onClick={onNavigateHome} className="mt-auto flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-xs font-bold uppercase">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/></svg>
+          Sair do Painel
+        </button>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-12 overflow-y-auto">
+        
+        {activeTab === 'EVENTS' && (
+          <div className="space-y-8 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-serif font-bold text-equus-navy italic">Eventos Cadastrados</h2>
+              <button onClick={() => setEventModal({isOpen: true, event: {}})} className="bg-equus-navy text-white px-6 py-3 rounded font-bold uppercase text-xs tracking-widest shadow-xl">+ Novo Leilão</button>
             </div>
-
-            {/* SUBMISSIONS TAB */}
-            {activeTab === 'SUBMISSIONS' && (
-                <div className="grid grid-cols-1 gap-6">
-                    {submissions.length === 0 && <p className="text-gray-500">Nenhum cadastro pendente.</p>}
-                    
-                    {submissions.filter(s => s.status === 'PENDING').map(sub => (
-                        <div key={sub.id} className="bg-white p-6 rounded shadow-sm flex flex-col md:flex-row gap-6 border-l-4 border-yellow-400">
-                            <div className="w-32 h-32 bg-gray-200 flex-shrink-0">
-                                <img src={sub.photos.left} className="w-full h-full object-cover rounded" alt="Preview" />
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between mb-2">
-                                    <h3 className="text-xl font-bold text-equus-navy">{sub.name}</h3>
-                                    <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-1 rounded">PENDENTE</span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-1"><strong>Vendedor:</strong> {sub.sellerName} ({sub.sellerEmail})</p>
-                                <p className="text-sm text-gray-600 mb-4"><strong>Raça:</strong> {sub.breed} • <strong>Nascimento:</strong> {sub.dob}</p>
-                                
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => openDetails(sub)}
-                                        className="bg-blue-600 text-white px-4 py-2 text-sm font-bold uppercase rounded hover:bg-blue-500"
-                                    >
-                                        Visualizar
-                                    </button>
-                                    <button 
-                                        onClick={(e) => openApproval(sub.id, e)}
-                                        className="bg-green-600 text-white px-4 py-2 text-sm font-bold uppercase rounded hover:bg-green-500"
-                                    >
-                                        Aprovar
-                                    </button>
-                                    <button 
-                                        onClick={(e) => handleReject(sub.id, e)}
-                                        className="bg-red-100 text-red-600 px-4 py-2 text-sm font-bold uppercase rounded hover:bg-red-200"
-                                    >
-                                        Rejeitar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    
-                    {/* Rejected/Approved History could go here */}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.map(evt => (
+                <div key={evt.id} className="bg-white p-6 rounded border border-gray-200 shadow-sm group">
+                  <div className="h-32 mb-4 overflow-hidden rounded"><img src={evt.coverImage} className="w-full h-full object-cover"/></div>
+                  <h3 className="font-bold text-lg mb-2">{evt.title}</h3>
+                  <div className="space-y-1 text-xs text-gray-500 mb-6">
+                    <p><strong>Abertura:</strong> {new Date(evt.startTime).toLocaleString()}</p>
+                    <p><strong>Fechamento:</strong> {new Date(evt.endTime).toLocaleString()}</p>
+                    <p><strong>Plano:</strong> {DEFAULT_PAYMENT_CONFIGS.find(p => p.id === evt.paymentConfigId)?.name || 'N/A'}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="flex-1 bg-gray-100 p-2 rounded text-[10px] font-bold uppercase hover:bg-gray-200">Editar</button>
+                    <button className="flex-1 bg-red-50 text-red-600 p-2 rounded text-[10px] font-bold uppercase hover:bg-red-100">Excluir</button>
+                  </div>
                 </div>
-            )}
+              ))}
+            </div>
+          </div>
+        )}
 
-            {/* EVENTS TAB */}
-            {activeTab === 'EVENTS' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* List */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-equus-navy uppercase mb-4">Eventos Ativos</h3>
-                        {events.map(evt => (
-                            <div key={evt.id} className="bg-white p-4 rounded shadow-sm border border-gray-200">
-                                <h4 className="font-bold text-lg">{evt.title}</h4>
-                                <p className="text-sm text-gray-500">{evt.startTime.toLocaleDateString()} - {evt.endTime.toLocaleDateString()}</p>
-                                <div className="mt-2 text-xs bg-gray-100 inline-block px-2 py-1 rounded">
-                                    Config. Pagamento: {DEFAULT_PAYMENT_CONFIGS.find(p => p.id === evt.paymentConfigId)?.name || 'Padrão'}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+        {activeTab === 'LOTS' && (
+          <div className="space-y-8 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-serif font-bold text-equus-navy italic">Catálogo de Lotes</h2>
+              <button onClick={() => setLotModal({isOpen: true, lot: {}})} className="bg-equus-navy text-white px-6 py-3 rounded font-bold uppercase text-xs tracking-widest">+ Adicionar Lote</button>
+            </div>
+            
+            <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b">
+                  <tr className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">
+                    <th className="p-4">Nº</th>
+                    <th className="p-4">Animal</th>
+                    <th className="p-4">Evento</th>
+                    <th className="p-4">Preço Atual</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm">
+                  {lots.map(lot => (
+                    <tr key={lot.id} className="hover:bg-gray-50">
+                      <td className="p-4 font-bold text-equus-gold">#{lot.lotNumber}</td>
+                      <td className="p-4 font-bold">{lot.name}</td>
+                      <td className="p-4 text-xs">{events.find(e => e.id === lot.auctionId)?.title}</td>
+                      <td className="p-4 font-mono">{formatCurrency(lot.currentPrice)}</td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase ${
+                          lot.status === AuctionStatus.ACTIVE ? 'bg-emerald-100 text-emerald-700' :
+                          lot.status === AuctionStatus.SOLD ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {lot.status}
+                        </span>
+                      </td>
+                      <td className="p-4"><button className="text-blue-600 hover:underline font-bold uppercase text-[10px]">Editar</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-                    {/* Create Form */}
-                    <div className="bg-white p-6 rounded shadow-lg h-fit">
-                        <h3 className="font-bold text-equus-navy uppercase mb-4 border-b border-gray-100 pb-2">Novo Evento</h3>
-                        <div className="space-y-4">
-                            <input 
-                                placeholder="Título do Evento" 
-                                value={newEvent.title} 
-                                onChange={e => setNewEvent({...newEvent, title: e.target.value})}
-                                className="w-full p-3 border border-gray-300 rounded"
-                            />
-                            <textarea 
-                                placeholder="Descrição" 
-                                value={newEvent.description} 
-                                onChange={e => setNewEvent({...newEvent, description: e.target.value})}
-                                className="w-full p-3 border border-gray-300 rounded"
-                            />
-                            <input 
-                                placeholder="URL da Capa" 
-                                value={newEvent.coverImage} 
-                                onChange={e => setNewEvent({...newEvent, coverImage: e.target.value})}
-                                className="w-full p-3 border border-gray-300 rounded"
-                            />
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Condição de Pagamento</label>
-                                <select 
-                                    className="w-full p-3 border border-gray-300 rounded"
-                                    value={newEvent.paymentConfigId}
-                                    onChange={e => setNewEvent({...newEvent, paymentConfigId: e.target.value})}
-                                >
-                                    {DEFAULT_PAYMENT_CONFIGS.map(conf => (
-                                        <option key={conf.id} value={conf.id}>{conf.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <button onClick={handleCreateEvent} className="w-full bg-equus-navy text-white py-3 font-bold uppercase hover:bg-equus-gold">
-                                Criar Evento
-                            </button>
-                        </div>
+        {activeTab === 'USERS' && (
+          <div className="space-y-8 animate-fade-in">
+            <h2 className="text-3xl font-serif font-bold text-equus-navy italic">Aprovação de Clientes</h2>
+            <div className="grid grid-cols-1 gap-4">
+              {users.map(user => (
+                <div key={user.id} className="bg-white p-6 rounded border border-gray-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-lg">{user.name}</h3>
+                    <p className="text-xs text-gray-500">{user.email} • CPF: {user.cpf}</p>
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
+                      user.status === UserStatus.APPROVED ? 'bg-emerald-100 text-emerald-700' :
+                      user.status === UserStatus.PENDING ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {user.status}
+                    </span>
+                    <div className="flex gap-1">
+                      <button onClick={() => onUpdateUserStatus(user.id, UserStatus.APPROVED)} className="bg-emerald-600 text-white p-2 rounded hover:bg-emerald-700"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.42-6.446a.542.542 0 0 1 .012-.01z"/></svg></button>
+                      <button onClick={() => onUpdateUserStatus(user.id, UserStatus.BLOCKED)} className="bg-red-600 text-white p-2 rounded hover:bg-red-700"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg></button>
                     </div>
+                  </div>
                 </div>
-            )}
+              ))}
+              {users.length === 0 && <p className="text-center py-12 text-gray-400 italic">Nenhum cliente cadastrado.</p>}
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* Modals placeholders */}
+      {lotModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+          <div className="bg-white p-10 rounded shadow-2xl max-w-2xl w-full border-t-8 border-equus-gold">
+            <h3 className="text-xl font-serif font-bold mb-8">Cadastrar Novo Lote</h3>
+            <p className="text-sm text-gray-500 mb-8 italic">Integração com formulário completo de dados técnicos.</p>
+            <button onClick={() => setLotModal({isOpen: false, lot: null})} className="w-full bg-equus-navy text-white py-4 rounded font-bold uppercase tracking-widest">Fechar</button>
+          </div>
         </div>
-
-        {/* DETAILS VIEW MODAL */}
-        {viewModal.isOpen && viewModal.sub && (
-             <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[20000] p-4">
-                <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                    <div className="bg-equus-navy text-white p-4 flex justify-between items-center sticky top-0">
-                        <h3 className="font-bold uppercase tracking-widest">Detalhes: {viewModal.sub.name}</h3>
-                        <button onClick={() => setViewModal({isOpen: false, sub: null})} className="text-2xl">&times;</button>
-                    </div>
-                    <div className="p-6 space-y-6">
-                        {/* Images */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                             {Object.entries(viewModal.sub.photos).map(([key, url]) => (
-                                 <div key={key} className="aspect-video bg-gray-100">
-                                     <img src={url} className="w-full h-full object-cover" alt={key} />
-                                     <span className="text-[10px] uppercase text-gray-500 block text-center">{key}</span>
-                                 </div>
-                             ))}
-                        </div>
-                        
-                        {/* Info */}
-                        <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded">
-                             <p><strong>ABCCH:</strong> {viewModal.sub.abcchId}</p>
-                             <p><strong>Raça:</strong> {viewModal.sub.breed}</p>
-                             <p><strong>Pai:</strong> {viewModal.sub.sire}</p>
-                             <p><strong>Mãe:</strong> {viewModal.sub.dam}</p>
-                             <p><strong>Vídeo:</strong> {viewModal.sub.youtubeLink}</p>
-                             <p className="col-span-2 border-t border-gray-200 pt-2 mt-2">
-                                <strong className="text-equus-navy">Valor Objetivo:</strong> {formatCurrency(viewModal.sub.targetPrice || 0)}
-                             </p>
-                        </div>
-                        
-                        <div>
-                            <strong>Descrição:</strong>
-                            <p className="text-gray-700">{viewModal.sub.description}</p>
-                        </div>
-                        
-                        <div>
-                             <strong>Documentos:</strong>
-                             <ul className="list-disc pl-5">
-                                 {viewModal.sub.documents.length === 0 ? <li>Nenhum documento.</li> : 
-                                     viewModal.sub.documents.map((d, i) => <li key={i}>{d.title}</li>)
-                                 }
-                             </ul>
-                        </div>
-                    </div>
-                    <div className="p-4 border-t bg-gray-50 text-right">
-                        <button onClick={() => setViewModal({isOpen: false, sub: null})} className="px-6 py-2 bg-gray-300 font-bold rounded hover:bg-gray-400">Fechar</button>
-                    </div>
-                </div>
-             </div>
-        )}
-
-        {/* APPROVAL MODAL */}
-        {approvalModal.isOpen && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[20000]">
-                <div className="bg-white p-8 rounded-lg shadow-2xl max-w-lg w-full">
-                    <h3 className="text-xl font-bold text-equus-navy mb-6">Configurar Lote</h3>
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Evento de Destino</label>
-                            <select 
-                                className="w-full p-2 border border-gray-300 rounded"
-                                value={approveConfig.eventId}
-                                onChange={e => setApproveConfig({...approveConfig, eventId: e.target.value})}
-                            >
-                                {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
-                            </select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Lote Nº</label>
-                                <input 
-                                    type="number" 
-                                    className="w-full p-2 border border-gray-300 rounded"
-                                    value={approveConfig.lotNumber}
-                                    onChange={e => setApproveConfig({...approveConfig, lotNumber: parseInt(e.target.value)})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Preço Inicial (R$)</label>
-                                <input 
-                                    type="number" 
-                                    className="w-full p-2 border border-gray-300 rounded"
-                                    value={approveConfig.startPrice}
-                                    onChange={e => setApproveConfig({...approveConfig, startPrice: parseInt(e.target.value)})}
-                                />
-                            </div>
-                        </div>
-                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Incremento Mínimo (R$)</label>
-                            <input 
-                                type="number" 
-                                className="w-full p-2 border border-gray-300 rounded"
-                                value={approveConfig.increment}
-                                onChange={e => setApproveConfig({...approveConfig, increment: parseInt(e.target.value)})}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4 mt-8">
-                        <button onClick={() => setApprovalModal({isOpen: false, subId: null})} className="flex-1 py-3 border border-gray-300 font-bold uppercase text-xs">Cancelar</button>
-                        <button onClick={confirmApproval} className="flex-1 py-3 bg-equus-gold text-white font-bold uppercase text-xs hover:bg-equus-navy">Confirmar Aprovação</button>
-                    </div>
-                </div>
-            </div>
-        )}
+      )}
     </div>
   );
 };
