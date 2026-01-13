@@ -2,50 +2,32 @@
 import { GoogleGenAI } from "@google/genai";
 import { HorseLot } from "../types";
 
-// Helper to get a configured client, ensuring it uses the required environment variable
-const getClient = () => {
-    if (!process.env.API_KEY) {
-        console.warn("Gemini API Key missing");
-        return null;
-    }
-    // Always use named parameter for apiKey
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
+/**
+ * Consults Gemini about a specific horse lot using the provided question.
+ * Uses the mandatory process.env.API_KEY for authentication.
+ */
 export const askGeminiAboutHorse = async (horse: HorseLot, question: string): Promise<string> => {
-  const ai = getClient();
-  if (!ai) return "A chave de API do Gemini não foi configurada.";
+  // Initialize AI client with the required process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const context = `
-    ATUE COMO: Auditor Técnico do Horse Bid Market.
-    OBJETIVO: Responder tecnicamente sobre o cavalo ${horse.name}.
-    REGRAS: 
-    1. Respostas curtas e secas. 
-    2. Apenas fatos genealógicos. 
-    3. Use Markdown.
-    
-    DADOS:
-    Nome: ${horse.name}
-    Raça: ${horse.breed}
-    Pai: ${horse.sire}
-    Mãe: ${horse.dam}
-    Avô Materno: ${horse.damSire}
+    Você é o Especialista Técnico do Horse Bid Market.
+    Dados do Cavalo:
+    Nome: ${horse.name} | Raça: ${horse.breed}
+    Pai: ${horse.sire} | Mãe: ${horse.dam}
+    Desempenho: ${horse.description}
+    Responda em Português, de forma técnica e objetiva.
   `;
 
   try {
-    // Correct usage of generateContent with Gemini 3 models
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `${context}\n\nPergunta: ${question}`,
-      config: {
-          temperature: 0.1,
-      },
+      contents: `${context}\n\nPergunta do Comprador: ${question}`,
     });
-
-    // Accessing .text property directly as per guidelines
-    return response.text || "Sem dados técnicos suficientes.";
+    // Direct property access to .text as per SDK guidelines
+    return response.text || "Sem resposta técnica disponível.";
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return "Erro na consulta técnica.";
+    console.error("Gemini API Error:", error);
+    return "Erro ao consultar a IA.";
   }
 };
