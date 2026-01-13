@@ -22,8 +22,6 @@ const App: React.FC = () => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [bidConfirmation, setBidConfirmation] = useState<{isOpen: boolean, amount: number, installmentValue: number} | null>(null);
   const [isLive, setIsLive] = useState(false);
-  const [activeMediaTab, setActiveMediaTab] = useState<'PHOTOS' | 'VIDEO'>('PHOTOS');
-  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
   const [officialTime, setOfficialTime] = useState(new Date());
 
   const [events, setEvents] = useState<AuctionEvent[]>([]);
@@ -35,35 +33,23 @@ const App: React.FC = () => {
   const activeLot = lots.find(l => l.id === selectedLotId);
   const activeEvent = events.find(e => e.id === selectedEventId);
 
+  // 1. Inicialização e Auth
   useEffect(() => {
     const init = async () => {
         setIsLive(isSupabaseConfigured);
 
         if (isSupabaseConfigured) {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    setCurrentUser({ id: session.user.id, name: session.user.email || 'Usuário', type: 'USER' });
-                }
-
-                const dbEvents = await fetchActiveEvents();
-                if (dbEvents && dbEvents.length > 0) {
-                     setEvents(dbEvents.map((e: any) => ({
-                         id: e.id,
-                         title: e.title,
-                         description: e.description,
-                         coverImage: e.cover_image,
-                         startTime: new Date(e.start_time),
-                         endTime: new Date(e.end_time),
-                         status: e.status
-                     })));
-                } else {
-                    setEvents(MOCK_EVENTS);
-                }
-            } catch (e) {
-                console.error("Failed to initialize Supabase:", e);
-                setEvents(MOCK_EVENTS);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                setCurrentUser({ 
+                    id: session.user.id, 
+                    name: profile?.name || session.user.email, 
+                    type: profile?.role === 'ADMIN' ? 'ADMIN' : 'USER' 
+                });
             }
+            const dbEvents = await fetchActiveEvents();
+            setEvents(dbEvents.length > 0 ? dbEvents.map(processDbEvent) : MOCK_EVENTS);
         } else {
             setEvents(MOCK_EVENTS);
         }
@@ -72,37 +58,55 @@ const App: React.FC = () => {
     init();
   }, []);
 
+  const processDbEvent = (e: any): AuctionEvent => ({
+    id: e.id,
+    title: e.title,
+    description: e.description,
+    coverImage: e.cover_image,
+    startTime: new Date(e.start_time),
+    endTime: new Date(e.end_time),
+    status: e.status as AuctionStatus
+  });
+
+  // 2. Realtime Subscription para Lances e Lotes
   useEffect(() => {
-      if (selectedEventId) {
-          if (isLive) {
-              const loadLots = async () => {
-                  try {
-                      const dbLots = await fetchLotsByEvent(selectedEventId);
-                      if (dbLots && dbLots.length > 0) {
-                          setLots(dbLots.map((l: any) => ({
-                              ...l,
-                              endTime: new Date(l.end_time),
-                              bids: l.bids?.map((b: any) => ({
-                                  id: b.id,
-                                  amount: b.amount,
-                                  timestamp: new Date(b.created_at),
-                                  bidderName: b.user_id === currentUser?.id ? 'Você' : 'Usuário ***'
-                              })).sort((a: any, b: any) => b.amount - a.amount) || []
-                          })));
-                      } else {
-                          setLots(MOCK_LOTS.filter(l => l.auctionId === selectedEventId));
-                      }
-                  } catch (e) { 
-                      console.error(e); 
-                      setLots(MOCK_LOTS.filter(l => l.auctionId === selectedEventId));
-                  }
-              };
-              loadLots();
-          } else {
-              setLots(MOCK_LOTS.filter(l => l.auctionId === selectedEventId));
-          }
-      }
-  }, [selectedEventId, isLive, currentUser]);
+    if (!isLive || !selectedEventId) return;
+
+    // Carregar lots iniciais
+    const loadInitialLots = async () => {
+        const dbLots = await fetchLotsByEvent(selectedEventId);
+        setLots(dbLots.map(processDbLot));
+    };
+    loadInitialLots();
+
+    // Inscrição Realtime
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
+          loadInitialLots(); // Recarrega tudo ao haver novo lance
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots' }, (payload) => {
+          setLots(prev => prev.map(l => l.id === payload.new.id ? { ...l, currentPrice: payload.new.current_price } : l));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedEventId, isLive]);
+
+  const processDbLot = (l: any): HorseLot => ({
+    ...l,
+    imageUrl: l.image_url,
+    lotNumber: l.lot_number,
+    currentPrice: l.current_price,
+    startPrice: l.start_price,
+    endTime: new Date(l.end_time),
+    bids: l.bids?.map((b: any) => ({
+        id: b.id,
+        amount: b.amount,
+        timestamp: new Date(b.created_at),
+        bidderName: b.user_id === currentUser?.id ? 'Você' : `Usuário ***${b.user_id.slice(-3)}`
+    })).sort((a: any, b: any) => b.amount - a.amount) || []
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setOfficialTime(new Date()), 1000);
@@ -117,10 +121,6 @@ const App: React.FC = () => {
 
   const confirmBid = async () => {
     if (!activeLot || !bidConfirmation || !currentUser) return;
-    if (!isLive) {
-        alert("Lances reais exigem conexão com o Supabase. Por favor, configure as variáveis de ambiente.");
-        return;
-    }
     try {
         await placeRealBid(activeLot.id, bidConfirmation.amount, currentUser.id);
         setBidConfirmation(null);
@@ -144,7 +144,7 @@ const App: React.FC = () => {
                   <div className="hidden md:flex flex-col items-center">
                         <div className="flex items-center gap-2 mb-1">
                             <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-orange-500'}`}></div>
-                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">{isLive ? 'Sistema Live' : 'Demonstração'}</span>
+                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">{isLive ? 'Operação Real' : 'Demonstração'}</span>
                         </div>
                         <div className="text-xl font-mono font-bold text-equus-gold">
                             {officialTime.toLocaleTimeString('pt-BR', { hour12: false })}
@@ -155,10 +155,13 @@ const App: React.FC = () => {
               <nav className="hidden md:flex items-center gap-6">
                   <button onClick={() => setCurrentView('HOME')} className="text-xs font-bold uppercase hover:text-equus-gold transition-colors">Leilões</button>
                   <button onClick={() => setCurrentView('SELLER')} className="text-xs font-bold uppercase hover:text-equus-gold transition-colors">Vender</button>
+                  {currentUser?.type === 'ADMIN' && (
+                      <button onClick={() => setCurrentView('ADMIN')} className="text-xs font-bold uppercase text-equus-gold border border-equus-gold px-2 py-1 rounded">Painel ADM</button>
+                  )}
                   {currentUser ? (
                       <div className="flex items-center gap-3 ml-4">
                           <span className="text-xs text-gray-300"><strong>{currentUser.name}</strong></span>
-                          <button onClick={async () => { if(isLive) await supabase.auth.signOut(); setCurrentUser(null); }} className="text-[10px] uppercase font-bold text-red-400 border border-red-400/50 px-2 py-1 rounded">Sair</button>
+                          <button onClick={async () => { if(isLive) await supabase.auth.signOut(); setCurrentUser(null); setCurrentView('HOME'); }} className="text-[10px] uppercase font-bold text-red-400 border border-red-400/50 px-2 py-1 rounded">Sair</button>
                       </div>
                   ) : (
                       <div className="flex gap-4 ml-4">
@@ -174,7 +177,7 @@ const App: React.FC = () => {
   if (loading) return <div className="h-screen bg-equus-navy flex items-center justify-center text-equus-gold font-serif animate-pulse">Sincronizando Mercado...</div>;
   if (currentView === 'ADMIN') return <AdminDashboard events={events} submissions={submissions} onCreateEvent={(e) => setEvents([...events, e])} onApproveSubmission={() => {}} onRejectSubmission={() => {}} onNavigateHome={() => setCurrentView('HOME')} />;
   if (currentView === 'SELLER') return <>{renderHeader()}<SellerRegistration onCancel={() => setCurrentView('HOME')} onSubmit={() => setCurrentView('HOME')} /></>;
-  if (currentView === 'LOGIN') return <Login onCancel={() => setCurrentView('HOME')} onSuccess={(u) => { setCurrentUser({id: u.id, name: u.name, type: 'USER'}); setCurrentView('HOME'); }} onRegisterClick={() => setCurrentView('REGISTER')} />;
+  if (currentView === 'LOGIN') return <Login onCancel={() => setCurrentView('HOME')} onSuccess={(u) => { setCurrentUser({id: u.id, name: u.name, type: u.type}); setCurrentView('HOME'); }} onRegisterClick={() => setCurrentView('REGISTER')} />;
   if (currentView === 'REGISTER') return <UserRegistration onCancel={() => setCurrentView('HOME')} onSuccess={() => setCurrentView('LOGIN')} />;
 
   if (currentView === 'EVENT' && activeEvent) {
@@ -194,7 +197,7 @@ const App: React.FC = () => {
             </div>
             <main className="max-w-7xl mx-auto px-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {eventLots.map(lot => <AuctionCard key={lot.id} lot={lot} onClick={(id) => {setSelectedLotId(id); setCurrentView('DETAIL');}} />)}
+                    {eventLots.length > 0 ? eventLots.map(lot => <AuctionCard key={lot.id} lot={lot} onClick={(id) => {setSelectedLotId(id); setCurrentView('DETAIL');}} />) : <p className="col-span-full text-center py-20 text-gray-400 uppercase font-bold">Nenhum lote disponível neste evento.</p>}
                 </div>
             </main>
         </div>
@@ -212,7 +215,7 @@ const App: React.FC = () => {
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white rounded shadow-sm overflow-hidden border">
                             <div className="aspect-video bg-black relative">
-                                <img src={selectedGalleryImage || activeLot.imageUrl} className="w-full h-full object-contain" />
+                                <img src={activeLot.imageUrl} className="w-full h-full object-contain" />
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded shadow-sm border">
