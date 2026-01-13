@@ -1,18 +1,24 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// No ambiente de produção, essas variáveis devem estar configuradas no painel da sua hospedagem
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+/**
+ * DETERMINA SE O SISTEMA ESTÁ EM PRODUÇÃO
+ * Se estas chaves existirem, o modo Demo é desativado permanentemente.
+ */
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== "undefined");
 
 const createDummyClient = () => {
   return {
     auth: {
-      signUp: async () => ({ data: { user: null }, error: new Error("Supabase não configurado") }),
-      signInWithPassword: async () => ({ data: { user: null }, error: new Error("Supabase não configurado") }),
+      signUp: async () => ({ data: { user: null }, error: new Error("Sistema em modo demonstração") }),
+      signInWithPassword: async () => ({ data: { user: null }, error: new Error("Sistema em modo demonstração") }),
       signOut: async () => ({ error: null }),
       getSession: async () => ({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
     },
     from: () => ({
       select: () => ({
@@ -61,7 +67,7 @@ export const fetchLotsByEvent = async (eventId: string) => {
 // --- FUNÇÕES DE OPERAÇÃO ---
 
 export const placeRealBid = async (lotId: string, amount: number, userId: string) => {
-  if (!isSupabaseConfigured) throw new Error("Supabase não configurado");
+  if (!isSupabaseConfigured) throw new Error("Atenção: Sistema Offline.");
   const { error } = await supabase
     .from('bids')
     .insert([{ lot_id: lotId, user_id: userId, amount }]);
@@ -70,7 +76,7 @@ export const placeRealBid = async (lotId: string, amount: number, userId: string
 };
 
 export const submitHorseForReview = async (submission: any, userId: string) => {
-  if (!isSupabaseConfigured) return true; // Sucesso fake no modo demo
+  if (!isSupabaseConfigured) return true;
   const { error } = await supabase
     .from('submissions')
     .insert([{
@@ -85,15 +91,4 @@ export const submitHorseForReview = async (submission: any, userId: string) => {
     }]);
   if (error) throw error;
   return true;
-};
-
-export const createNewEvent = async (eventData: any) => {
-    if (!isSupabaseConfigured) return { id: 'temp-id' };
-    const { data, error } = await supabase
-        .from('events')
-        .insert([eventData])
-        .select()
-        .single();
-    if (error) throw error;
-    return data;
 };
