@@ -114,7 +114,7 @@ const GeminiConsultant: React.FC<Props> = ({ horse }) => {
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
-              <span className="text-xs text-gray-500 font-bold ml-2">AUDITANDO DADOS...</span>
+              <span className="text-xs text-gray-500 font-bold ml-2">PENSANDO NA SUA PERGUNTA...</span>
             </div>
           </div>
         )}

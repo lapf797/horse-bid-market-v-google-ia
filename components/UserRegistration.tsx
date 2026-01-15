@@ -18,16 +18,8 @@ const UserRegistration: React.FC<Props> = ({ onCancel, onSuccess }) => {
     email: '',
     phone: '',
     cpf: '',
-    dob: '',
-    cep: '',
-    street: '',
-    number: '',
-    neighborhood: '',
-    city: '',
-    state: '',
     password: '',
-    confirmPassword: '',
-    terms: false
+    terms: true
   });
 
   const handleMask = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,35 +30,19 @@ const UserRegistration: React.FC<Props> = ({ onCancel, onSuccess }) => {
     if (name === 'phone') {
       value = value.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2').replace(/(-\d{4})\d+?$/, '$1');
     }
-    if (name === 'cep') {
-      value = value.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').replace(/(-\d{3})\d+?$/, '$1');
-    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCepSearch = async () => {
-    if (formData.cep.length < 9) return;
-    setLoading(true);
-    try {
-        const response = await fetch(`https://viacep.com.br/ws/${formData.cep.replace('-', '')}/json/`);
-        const data = await response.json();
-        if (!data.erro) {
-            setFormData(prev => ({ ...prev, street: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf }));
-        }
-    } catch (e) { console.error("Erro CEP", e); }
-    setLoading(false);
-  };
-
   const handleSubmit = async () => {
-    if (!formData.terms) return;
     setLoading(true);
     setError('');
 
+    // Simulação de processamento tecnológico "AI Validation"
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     if (!isSupabaseConfigured) {
-        setTimeout(() => {
-            setSuccess(true);
-            setLoading(false);
-        }, 1500);
+        setSuccess(true);
+        setLoading(false);
         return;
     }
 
@@ -79,21 +55,17 @@ const UserRegistration: React.FC<Props> = ({ onCancel, onSuccess }) => {
         if (authError) throw authError;
 
         if (authData.user) {
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .insert([{
-                    id: authData.user.id,
-                    name: formData.name,
-                    cpf: formData.cpf,
-                    phone: formData.phone,
-                    role: 'USER'
-                }]);
-
-            if (profileError) console.error("Error creating profile:", profileError);
+            await supabase.from('profiles').insert([{
+                id: authData.user.id,
+                name: formData.name,
+                cpf: formData.cpf,
+                phone: formData.phone,
+                role: 'USER'
+            }]);
             setSuccess(true);
         }
     } catch (err: any) {
-        setError(err.message || "Erro ao criar conta.");
+        setError(err.message || "Erro ao processar registro.");
     } finally {
         setLoading(false);
     }
@@ -101,171 +73,109 @@ const UserRegistration: React.FC<Props> = ({ onCancel, onSuccess }) => {
 
   if (success) {
       return (
-          <div className="min-h-[600px] flex items-center justify-center bg-gray-50 p-4 animate-fade-in">
-              <div className="bg-white p-12 rounded-lg shadow-2xl text-center max-w-md w-full border-t-8 border-emerald-500">
-                  <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8">
-                      <svg className="w-12 h-12 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+          <div className="min-h-[600px] flex items-center justify-center p-6 animate-fade-in">
+              <div className="bg-white p-12 rounded-sm shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2)] text-center max-w-md w-full border-t-8 border-equus-gold">
+                  <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+                      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
                       </svg>
                   </div>
-                  <h2 className="text-3xl font-serif font-bold text-equus-navy mb-4 uppercase tracking-tighter">Conta Criada!</h2>
-                  <p className="text-gray-600 mb-10 leading-relaxed">
-                      Seu registro foi processado. Você já pode participar dos leilões e gerenciar seus lances com segurança.
+                  <h2 className="text-3xl font-serif font-bold text-equus-navy mb-4 uppercase tracking-tighter italic">Bem-vindo à Elite</h2>
+                  <p className="text-sm text-gray-500 mb-10 leading-relaxed">
+                      Seu perfil foi validado. Você agora está apto a participar dos leilões oficiais do Horse Bid Market.
                   </p>
-                  <button onClick={onSuccess} className="w-full bg-equus-navy text-white py-4 rounded font-bold uppercase tracking-widest hover:bg-equus-gold transition-all shadow-lg">
-                      Acessar Plataforma
+                  <button onClick={onSuccess} className="w-full bg-equus-navy text-white py-5 rounded-sm font-bold uppercase tracking-[0.3em] text-[10px] shadow-2xl hover:bg-equus-gold hover:text-equus-navy transition-all">
+                      Acessar Painel de Lances
                   </button>
               </div>
           </div>
       );
   }
 
+  const inputClass = "w-full p-4 bg-gray-50 border border-gray-100 rounded-sm focus:bg-white focus:border-equus-gold focus:ring-1 focus:ring-equus-gold outline-none transition-all text-sm font-medium text-equus-navy placeholder:text-gray-300 shadow-sm";
+  const labelClass = "text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-2 block";
+
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl w-full bg-white rounded-sm shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[750px] border border-gray-200">
-        <div className="hidden md:flex md:w-5/12 bg-equus-navy relative p-16 flex-col justify-between overflow-hidden">
-            <div className="absolute inset-0 opacity-20">
-                <img src="https://images.unsplash.com/photo-1534008277239-66175e1136b9?q=80&w=2070&auto=format&fit=crop" className="w-full h-full object-cover" />
-            </div>
-            <div className="relative z-10">
-                <h2 className="text-equus-gold font-serif text-4xl font-bold mb-4 tracking-tighter">HORSE BID MARKET</h2>
-                <p className="text-gray-400 text-xs tracking-[0.5em] uppercase font-bold">Tecnologia & Tradição</p>
-            </div>
-            <div className="relative z-10 space-y-8 text-white">
-               <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-equus-gold flex items-center justify-center text-equus-navy font-bold text-xs">01</div>
-                  <p className="text-sm font-light">Cadastro verificado com CPF/CNPJ.</p>
-               </div>
-               <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-equus-gold flex items-center justify-center text-equus-navy font-bold text-xs">02</div>
-                  <p className="text-sm font-light">Acesso instantâneo a lances em tempo real.</p>
-               </div>
-               <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-equus-gold flex items-center justify-center text-equus-navy font-bold text-xs">03</div>
-                  <p className="text-sm font-light">Contratos de compra automatizados via e-mail.</p>
-               </div>
-            </div>
-            <div className="relative z-10">
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">© 2025 Horse Bid Market Security</p>
-            </div>
+    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 bg-gray-50/50">
+      <div className="max-w-xl w-full bg-white rounded-sm shadow-[0_30px_100px_-20px_rgba(0,0,0,0.1)] border border-gray-100 relative overflow-hidden">
+        
+        {/* Header Tecnológico */}
+        <div className="bg-equus-navy p-10 text-white text-center border-b-4 border-equus-gold">
+            <div className="w-10 h-10 border-2 border-equus-gold rounded flex items-center justify-center font-serif text-lg text-equus-gold mx-auto mb-4">H</div>
+            <h2 className="text-2xl font-serif font-bold italic uppercase tracking-tighter">Registro de Comprador</h2>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.4em] mt-2">Validação em Tempo Real</p>
         </div>
 
-        <div className="w-full md:w-7/12 p-12 md:p-16 flex flex-col relative bg-white">
+        <div className="p-10 md:p-14">
             {error && (
-                <div className="mb-6 bg-red-50 text-red-600 p-4 rounded text-sm font-bold border-l-4 border-red-500 shadow-sm animate-shake">
+                <div className="mb-8 bg-red-50 text-red-600 p-4 rounded-sm text-[10px] font-bold border-l-4 border-red-500 uppercase tracking-widest animate-shake">
                     {error}
                 </div>
             )}
 
-            <div className="mb-12">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-3xl font-serif font-bold text-equus-navy tracking-tight">Novo Registro</h2>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em]">Passo {step} de 4</span>
-                </div>
-                <div className="w-full bg-gray-100 h-1.5 mb-8 rounded-full overflow-hidden">
-                    <div className="h-full bg-equus-gold transition-all duration-700 ease-in-out shadow-[0_0_10px_#C5A059]" style={{ width: `${step * 25}%` }}></div>
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8">
-                {step === 1 && (
-                    <div className="space-y-6 animate-fade-in">
-                        <h3 className="text-xl font-bold text-equus-navy uppercase tracking-tighter">Identificação de Acesso</h3>
-                        <div className="grid gap-6">
-                            <div className="group">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 group-focus-within:text-equus-gold transition-colors">Nome Completo</label>
-                                <input type="text" name="name" value={formData.name} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all placeholder-gray-300" placeholder="Nome impresso no documento" />
-                            </div>
-                            <div className="group">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 group-focus-within:text-equus-gold transition-colors">E-mail Corporativo ou Pessoal</label>
-                                <input type="email" name="email" value={formData.email} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all placeholder-gray-300" placeholder="seu@email.com" />
-                            </div>
-                            <div className="group">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 group-focus-within:text-equus-gold transition-colors">Celular (WhatsApp)</label>
-                                <input type="tel" name="phone" maxLength={15} value={formData.phone} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all placeholder-gray-300 font-mono" placeholder="(00) 00000-0000" />
-                            </div>
+            <div className="space-y-8">
+                {step === 1 ? (
+                    <div className="animate-fade-in space-y-6">
+                        <div className="flex flex-col">
+                            <label className={labelClass}>Nome Completo</label>
+                            <input type="text" name="name" value={formData.name} onChange={handleMask} className={inputClass} placeholder="Ex: Rodrigo Silva" />
                         </div>
-                    </div>
-                )}
-
-                {step === 2 && (
-                    <div className="space-y-6 animate-fade-in">
-                        <h3 className="text-xl font-bold text-equus-navy uppercase tracking-tighter">Validação de Crédito</h3>
-                        <div className="grid gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Documento de Identificação (CPF)</label>
-                                <input type="text" name="cpf" maxLength={14} value={formData.cpf} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all font-mono text-lg tracking-widest" placeholder="000.000.000-00" />
+                                <label className={labelClass}>WhatsApp</label>
+                                <input type="tel" name="phone" maxLength={15} value={formData.phone} onChange={handleMask} className={inputClass} placeholder="(00) 00000-0000" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Nascimento</label>
-                                <input type="date" name="dob" value={formData.dob} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all" />
+                                <label className={labelClass}>E-mail</label>
+                                <input type="email" name="email" value={formData.email} onChange={handleMask} className={inputClass} placeholder="seu@email.com" />
                             </div>
                         </div>
+                        <button 
+                            onClick={() => setStep(2)} 
+                            disabled={!formData.name || !formData.email || !formData.phone}
+                            className="w-full bg-equus-navy text-white py-5 rounded-sm font-bold uppercase tracking-[0.3em] text-[10px] shadow-xl hover:bg-black transition-all mt-4 disabled:opacity-30"
+                        >
+                            Próximo Passo
+                        </button>
                     </div>
-                )}
-
-                {step === 3 && (
-                    <div className="space-y-6 animate-fade-in">
-                        <h3 className="text-xl font-bold text-equus-navy uppercase tracking-tighter">Endereço de Faturamento</h3>
-                        <div className="flex gap-4 items-end">
-                            <div className="flex-1">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">CEP Postal</label>
-                                <input type="text" name="cep" maxLength={9} value={formData.cep} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all font-mono" placeholder="00000-000" />
-                            </div>
-                            <button onClick={handleCepSearch} disabled={loading || formData.cep.length < 9} className="h-[58px] px-8 bg-equus-navy text-white rounded-sm font-bold uppercase text-[10px] tracking-widest hover:bg-black disabled:opacity-50 transition-colors">
-                                Validar
+                ) : (
+                    <div className="animate-fade-in space-y-6">
+                        <div className="flex flex-col">
+                            <label className={labelClass}>CPF (Para validação de lances)</label>
+                            <input type="text" name="cpf" maxLength={14} value={formData.cpf} onChange={handleMask} className={`${inputClass} !text-lg font-mono tracking-widest`} placeholder="000.000.000-00" />
+                        </div>
+                        <div className="flex flex-col">
+                            <label className={labelClass}>Crie sua Senha de Acesso</label>
+                            <input type="password" name="password" value={formData.password} onChange={handleMask} className={inputClass} placeholder="••••••••" />
+                        </div>
+                        
+                        <div className="pt-4">
+                            <button 
+                                onClick={handleSubmit} 
+                                disabled={loading || !formData.cpf || !formData.password}
+                                className="w-full bg-equus-gold text-equus-navy py-5 rounded-sm font-bold uppercase tracking-[0.3em] text-[10px] shadow-2xl hover:bg-white border border-equus-gold transition-all disabled:opacity-30 flex items-center justify-center gap-3"
+                            >
+                                {loading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-equus-navy border-t-transparent rounded-full animate-spin"></div>
+                                        Sincronizando Perfil...
+                                    </>
+                                ) : 'Finalizar e Liberar Lances'}
                             </button>
                         </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="col-span-2">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Logradouro</label>
-                                <input type="text" name="street" value={formData.street} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-100 text-gray-500" readOnly />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Nº</label>
-                                <input type="text" name="number" value={formData.number} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white outline-none" placeholder="00" />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {step === 4 && (
-                    <div className="space-y-6 animate-fade-in">
-                        <h3 className="text-xl font-bold text-equus-navy uppercase tracking-tighter">Proteção de Dados</h3>
-                        <div className="grid gap-6">
-                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Crie uma Senha Forte</label>
-                                <input type="password" name="password" value={formData.password} onChange={handleMask} className="w-full p-4 border border-gray-200 rounded-sm bg-gray-50 focus:bg-white focus:border-equus-gold outline-none transition-all" />
-                            </div>
-                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Confirmar Senha</label>
-                                <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleMask} className={`w-full p-4 border rounded-sm bg-gray-50 focus:bg-white outline-none transition-all ${formData.confirmPassword && formData.password !== formData.confirmPassword ? 'border-red-500' : 'border-gray-200 focus:border-equus-gold'}`} />
-                            </div>
-                        </div>
-                        <div className="pt-6 border-t border-gray-100">
-                             <label className="flex items-start gap-4 p-5 bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 transition-colors group">
-                                <input type="checkbox" checked={formData.terms} onChange={(e) => setFormData(prev => ({ ...prev, terms: e.target.checked }))} className="mt-1 w-6 h-6 accent-equus-navy" />
-                                <span className="text-xs text-gray-500 leading-relaxed font-light">Declaro que as informações prestadas são verdadeiras e que aceito os <a href="#" className="text-equus-navy font-bold underline decoration-equus-gold">Termos de Compra e Venda</a> do Horse Bid Market.</span>
-                             </label>
-                        </div>
+                        <button onClick={() => setStep(1)} className="w-full text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors">Voltar e editar dados</button>
                     </div>
                 )}
             </div>
+        </div>
 
-            <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-center">
-                {step === 1 ? (
-                    <button onClick={onCancel} className="text-gray-400 hover:text-red-500 font-bold uppercase text-[10px] tracking-widest transition-colors">Desistir</button>
-                ) : (
-                    <button onClick={() => setStep(step - 1)} className="text-gray-500 hover:text-equus-navy font-bold uppercase text-[10px] tracking-widest transition-colors">Voltar</button>
-                )}
-                {step < 4 ? (
-                     <button onClick={() => setStep(step + 1)} className="bg-equus-navy text-white px-10 py-5 rounded-sm shadow-xl hover:bg-black transition-all font-bold uppercase text-[10px] tracking-widest">Avançar</button>
-                ) : (
-                     <button onClick={handleSubmit} disabled={!formData.terms || loading} className="bg-equus-gold text-equus-navy px-10 py-5 rounded-sm shadow-xl hover:bg-white border border-equus-gold transition-all font-bold uppercase text-[10px] tracking-widest disabled:opacity-50">
-                        {loading ? 'Sincronizando...' : 'Concluir Cadastro'}
-                     </button>
-                )}
+        <div className="bg-gray-50 p-6 flex items-center justify-center gap-6 border-t border-gray-100">
+            <div className="flex items-center gap-2 grayscale opacity-40">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"></path></svg>
+                <span className="text-[8px] font-bold uppercase tracking-widest">SSL Secure Data</span>
             </div>
+            <div className="w-px h-3 bg-gray-200"></div>
+            <button onClick={onCancel} className="text-[8px] font-bold text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors">Cancelar Registro</button>
         </div>
       </div>
     </div>

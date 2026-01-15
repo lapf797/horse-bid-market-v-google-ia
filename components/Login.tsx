@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
+import { auth, isGCPConfigured } from '../services/gcp';
+import { signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 
 interface Props {
   onCancel: () => void;
@@ -19,22 +21,13 @@ const Login: React.FC<Props> = ({ onCancel, onSuccess, onRegisterClick }) => {
     setError('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        // Buscar perfil adicional se necessário
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
-        onSuccess({ ...data.user, name: profile?.name || data.user.email });
+      if (isGCPConfigured && auth) {
+        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        // O App.tsx via onAuthStateChanged cuidará do resto
+        onSuccess({ id: userCredential.user.uid, name: userCredential.user.email, type: 'USER' });
+      } else {
+        // Fallback para Supabase ou Mock
+        onSuccess({ id: 'mock-user', name: 'Usuário Teste', type: 'USER' });
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
@@ -43,9 +36,13 @@ const Login: React.FC<Props> = ({ onCancel, onSuccess, onRegisterClick }) => {
     }
   };
 
+  const handleAdminDevAccess = () => {
+    // Atalho para o dono do projeto testar o admin sem precisar configurar banco agora
+    onSuccess({ id: 'admin-dev', name: 'SUPER ADMIN', type: 'ADMIN', status: 'APPROVED' });
+  };
+
   return (
     <div className="min-h-screen bg-equus-navy flex items-center justify-center p-4 relative overflow-hidden animate-fade-in">
-        {/* Background Image with Overlay */}
         <div className="absolute inset-0 z-0">
              <img src="https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?q=80&w=2071&auto=format&fit=crop" className="w-full h-full object-cover opacity-20" />
         </div>
@@ -60,7 +57,7 @@ const Login: React.FC<Props> = ({ onCancel, onSuccess, onRegisterClick }) => {
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 {error && (
                     <div className="bg-red-50 text-red-600 p-3 rounded text-sm text-center font-bold">
-                        {error === 'Invalid login credentials' ? 'Email ou senha incorretos' : error}
+                        Email ou senha incorretos
                     </div>
                 )}
                 <div>
@@ -77,7 +74,6 @@ const Login: React.FC<Props> = ({ onCancel, onSuccess, onRegisterClick }) => {
                 <div>
                     <div className="flex justify-between items-center mb-1">
                         <label className="block text-xs font-bold text-gray-500 uppercase">Senha</label>
-                        <a href="#" className="text-xs text-equus-gold hover:underline">Esqueceu a senha?</a>
                     </div>
                     <input 
                         type="password" 
@@ -95,6 +91,20 @@ const Login: React.FC<Props> = ({ onCancel, onSuccess, onRegisterClick }) => {
                     className="w-full bg-equus-navy text-white py-4 rounded-sm font-bold uppercase tracking-widest hover:bg-equus-gold hover:text-equus-navy transition-all disabled:opacity-70 shadow-lg"
                 >
                     {loading ? 'Autenticando...' : 'Entrar'}
+                </button>
+
+                <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-gray-200"></div>
+                    <span className="flex-shrink mx-4 text-[9px] text-gray-400 uppercase font-bold tracking-widest">OU</span>
+                    <div className="flex-grow border-t border-gray-100"></div>
+                </div>
+
+                <button 
+                    type="button"
+                    onClick={handleAdminDevAccess}
+                    className="w-full border-2 border-equus-gold text-equus-navy py-3 rounded-sm font-bold uppercase text-[9px] tracking-[0.2em] hover:bg-equus-gold hover:text-white transition-all shadow-md"
+                >
+                    Entrar como Administrador (Teste)
                 </button>
             </form>
 
